@@ -492,6 +492,7 @@ TEST(settings_tolerate_garbage_reject_arbitrary_values_and_ignore_removed_keys) 
 }
 
 // ------------------------------------------------------------------ OEM profil modülü: saf mantık + depo + kalıcı uygulama işlem akışı
+#include "test_language.h"
 #include "test_oem_json.h"
 #include "test_oem_store.h"
 #include "test_persist_view.h"

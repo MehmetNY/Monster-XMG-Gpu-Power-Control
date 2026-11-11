@@ -14,7 +14,7 @@
 #include "main_window.h"
 #include "settings_store.h"
 #include "startup_cli.h"
-#include "strings_tr.h"
+#include "strings.h"
 
 using namespace mgp;
 using namespace mgp::win;
@@ -52,13 +52,24 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE, PWSTR, int) {
   int rc = 0;
   {
     FileLogger log;
-    log.Write(LogLevel::Info, std::string("start v") + Narrow(tr::kVersion) + (Backends::IsDemoBuild() ? " DEMO(simulated hardware)" : "") +
+    log.Write(LogLevel::Info, std::string("start v") + Narrow(txt::kVersion) + (Backends::IsDemoBuild() ? " DEMO(simulated hardware)" : "") +
                                   (IsElevated() ? " elevated" : " NOT elevated"));
-    const Settings settings = LoadSettings();
+    Settings settings = LoadSettings();
+    // Kurulum sihirbazında SONRADAN seçilen dil, kullanıcının eski EN/TR seçimini geçersiz kılar: eski seçim ayar dosyasından silinir,
+    // yoksa ileride aynı kurulum diline dönüldüğünde yeniden ortaya çıkardı.
+    if (UserLanguageSuperseded(settings)) {
+      settings.language.clear();
+      settings.languageInstaller.clear();
+      if (!SaveSettings(settings)) log.Write(LogLevel::Warn, "ui language: could not clear the superseded language choice in settings.ini");
+      else log.Write(LogLevel::Info, "ui language: the installer's language choice superseded the earlier EN/TR choice");
+    }
+    // Arayüz dili: kullanıcı seçimi (settings.ini) -> kurulum sihirbazının seçimi (kayıt defteri) -> Windows arayüz dili -> İngilizce.
+    SetCurrentLang(DetectStartupLanguage(settings));
+    log.Write(LogLevel::Info, std::string("ui language ") + LangCode(CurrentLang()));
     Backends be(log);         // MainWindow'dan ÖNCE tanımlı: pencere (ve işçi iş parçacığı) önce yok edilir
     MainWindow win(hi, be, log, settings);
     if (!win.Create(minimized)) {
-      MessageBoxW(nullptr, L"Pencere oluşturulamadı.", tr::kAppTitle, MB_OK | MB_ICONERROR);
+      MessageBoxW(nullptr, txt::kWindowCreateFailed(), txt::kAppTitle, MB_OK | MB_ICONERROR);
       log.Write(LogLevel::Error, "window creation failed");
       rc = 1;
     } else {

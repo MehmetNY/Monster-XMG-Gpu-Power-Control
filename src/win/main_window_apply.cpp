@@ -16,8 +16,8 @@ namespace mgp {
 namespace win {
 
 using namespace ids;
-using tr::Level;
-using tr::Notice;
+using txt::Level;
+using txt::Notice;
 
 struct MainWindow::ApplyDone {
   ApplyResult r;                // anlık katman (kalıcı akışta txn.live ile aynı)
@@ -35,17 +35,17 @@ bool MainWindow::EnsureConsentsFor(int watts) {
   const ProfileDef* p = FindProfile(watts);
   if (!p) return false;
   if (!cur_.identity.boardConfirmed && !settings_.consentModel) {
-    if (MessageBoxW(hwnd_, tr::kConsentModelText, tr::kAppTitle, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) != IDYES) return false;
+    if (MessageBoxW(hwnd_, txt::kConsentModelText(), txt::kAppTitle, MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2) != IDYES) return false;
     settings_.consentModel = true;
     SaveSettings(settings_);
   }
   if (p->watts > kOemMaxWatts && !settings_.consentOverOem) {
-    if (MessageBoxW(hwnd_, tr::kConsentOverOemText, tr::kAppTitle, MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) != IDYES) return false;
+    if (MessageBoxW(hwnd_, txt::kConsentOverOemText(), txt::kAppTitle, MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) != IDYES) return false;
     settings_.consentOverOem = true;
     SaveSettings(settings_);
   }
   if (p->evidence == Evidence::ExpectedUnverified && !settings_.consentUnverified) {
-    if (MessageBoxW(hwnd_, tr::kConsentUnverifiedText, tr::kAppTitle, MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) != IDYES) return false;
+    if (MessageBoxW(hwnd_, txt::kConsentUnverifiedText(), txt::kAppTitle, MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) != IDYES) return false;
     settings_.consentUnverified = true;
     SaveSettings(settings_);
   }
@@ -55,7 +55,7 @@ bool MainWindow::EnsureConsentsFor(int watts) {
 void MainWindow::OnResetConsents() {
   settings_.consentOverOem = settings_.consentUnverified = settings_.consentModel = false;
   SaveSettings(settings_);
-  resultNotice_ = {Level::Info, L"Kayıtlı onaylar sıfırlandı; ilgili profiller yeniden onay isteyecek."};
+  SetNotice([]() { return txt::ConsentsResetNotice(); });
   log_.Write(LogLevel::Info, "UI: consents reset");
   Refresh();
 }
@@ -65,18 +65,25 @@ void MainWindow::OnProfileClick(int idx) {
   const ProfileDef& p = kProfiles[idx];
   if (applyInFlight_ || exiting_) return;
   if (!haveState_) {
-    resultNotice_ = {Level::Info, L"Durum okunuyor; birkaç saniye bekleyin."};
+    SetNotice([]() { return txt::StateReadingNotice(); });
     Refresh();
     return;
   }
   if (!cur_.CanWrite()) {
-    resultNotice_ = tr::FirstBlockerNotice(cur_);
+    {
+      const LiveState snap = cur_;
+      SetNotice([snap]() { return txt::FirstBlockerNotice(snap); });
+    }
     Refresh();
     return;
   }
   if (haveOem_ && !oemInsp_.ok) {
     // OEM profil dosyası kullanılamıyor: profil yalnız kalıcı uygulandığı için hiçbir şey yapılmaz ve gereksiz onay sorulmaz.
-    resultNotice_ = tr::PersistUnavailableNotice(oemInsp_.lock, oemInsp_.svc.versionRead ? oemInsp_.svc.version : std::string());
+    {
+      const oem::Lock lk = oemInsp_.lock;
+      const std::string ver = oemInsp_.svc.versionRead ? oemInsp_.svc.version : std::string();
+      SetNotice([lk, ver]() { return txt::PersistUnavailableNotice(lk, ver); });
+    }
     log_.Write(LogLevel::Warn, std::string("UI: ") + std::to_string(p.watts) + " W not applied: OEM profile module locked (" +
                                    oem::LockName(oemInsp_.lock) + ")");
     Refresh();
@@ -95,7 +102,7 @@ void MainWindow::StartApply(int watts, bool exitRestore, const std::string& appr
   applyInFlight_ = true;
   applyTarget_ = watts;
   applyIsExit_ = exitRestore;
-  resultNotice_ = Notice();
+  ClearNotice();
   ApplyOptions opts;
   opts.consentOverOem = settings_.consentOverOem;
   opts.consentUnverified = settings_.consentUnverified;
@@ -172,7 +179,7 @@ void MainWindow::OnApplyDone(ApplyDone* dp) {
   BlockShutdown(false);
   if (!d) {  // gönderici tamamlanma iletisini oluşturamadı: arayüz "uygulanıyor"da takılı kalmasın
     log_.Write(LogLevel::Error, "UI: apply completion payload missing");
-    resultNotice_ = {Level::Error, L"İşlem sonucu alınamadı; durum yeniden okunuyor. Gerekirse profili elle doğrulayın."};
+    SetNotice([]() { return txt::ApplyResultLostNotice(); });
     exitPending_ = false;
     RequestPoll(true, false);
     Refresh();
@@ -192,13 +199,12 @@ void MainWindow::OnApplyDone(ApplyDone* dp) {
       return;
     }
     // Çıkışta OEM 140 W'a dönüş başarısız: kullanıcı bunu bilmeden uygulama sessizce kapanmaz.
-    resultNotice_ = tr::ApplyNotice(r);
+    SetNotice([r]() { return txt::ApplyNotice(r); });
     if (!IsShown()) RestoreFromTray();
     Refresh();
-    const std::wstring msg = std::wstring(tr::kRestoreOnExitFailed) + L"\n\n" + resultNotice_.text +
-                             L"\n\nYine de çıkmak istiyor musunuz? (Hayır: uygulama açık kalır.)";
+    const std::wstring msg = std::wstring(txt::kRestoreOnExitFailed()) + L"\n\n" + resultNotice_.text + L"\n\n" + txt::kExitAnywayQuestion();
     exitPending_ = false;
-    const int ans = MessageBoxW(hwnd_, msg.c_str(), tr::kAppTitle, MB_YESNO | MB_ICONERROR | MB_DEFBUTTON2);
+    const int ans = MessageBoxW(hwnd_, msg.c_str(), txt::kAppTitle, MB_YESNO | MB_ICONERROR | MB_DEFBUTTON2);
     if (ans == IDYES) {
       log_.Write(LogLevel::Warn, "exit: user chose to exit although OEM 140 W restore failed");
       DoExit();
@@ -211,7 +217,7 @@ void MainWindow::OnApplyDone(ApplyDone* dp) {
   }
 
   if (d->oemLockBusy) {
-    resultNotice_ = tr::PersistLockBusyNotice();
+    SetNotice([]() { return txt::PersistLockBusyNotice(); });
     log_.Write(LogLevel::Warn, "UI: OEM profile lock busy; nothing applied");
     RequestPoll(true);
     Refresh();
@@ -237,7 +243,7 @@ void MainWindow::OnApplyDone(ApplyDone* dp) {
 
   const bool restored = d->txn.liveRestoreAttempted;
   const bool critical = r.outcome == Outcome::FailedRollbackUnverified || cls == TxnClass::OemFailedRestoreUnverified;
-  resultNotice_ = tr::PersistTxnNotice(cls, d->txn);
+  bool appendMetaFailed = false, appendNoOwnership = false;
 
   if (cls == TxnClass::BothOk) {
     // Sahiplik kanıtı: işlem SONRASI gerçek denetimden (SHA-256). YALNIZ bu işlemin yazıp doğruladığı dosya için: işlemden sonra başka bir
@@ -247,14 +253,24 @@ void MainWindow::OnApplyDone(ApplyDone* dp) {
       log_.Write(LogLevel::Warn, "UI: the OEM profile differs from the version this transaction verified; ownership is NOT recorded");
     if (own.Present()) settings_.oem = own;
     else settings_.oem.Clear();
-    if (!SaveSettings(settings_)) {
-      resultNotice_.text += tr::kPersistMetaSaveFailed;
-      if (resultNotice_.level == Level::Info) resultNotice_.level = Level::Warn;
-    }
-    if (!own.Present()) {
-      resultNotice_.text += tr::kPersistNoOwnership;
-      if (resultNotice_.level == Level::Info) resultNotice_.level = Level::Warn;
-    }
+    if (!SaveSettings(settings_)) appendMetaFailed = true;
+    if (!own.Present()) appendNoOwnership = true;
+  }
+  // Bildirim üretici işlev olarak saklanır: kullanıcı dili değiştirirse sonuç yeni dilde yeniden üretilir.
+  {
+    const PersistTxnResult txn = d->txn;
+    SetNotice([cls, txn, appendMetaFailed, appendNoOwnership]() {
+      Notice n = txt::PersistTxnNotice(cls, txn);
+      if (appendMetaFailed) {
+        n.text += txt::kPersistMetaSaveFailed();
+        if (n.level == Level::Info) n.level = Level::Warn;
+      }
+      if (appendNoOwnership) {
+        n.text += txt::kPersistNoOwnership();
+        if (n.level == Level::Info) n.level = Level::Warn;
+      }
+      return n;
+    });
   }
   // BothOkAlready: dosyaya yazılmadı; sahiplik kanıtı olduğu gibi kalır (yabancı bir değeri sahiplenmeyiz).
 
@@ -266,7 +282,7 @@ void MainWindow::OnApplyDone(ApplyDone* dp) {
     // Kritik: motor yazma kilidini de tutar; kullanıcı bunu bilmeden geçmesin.
     exitPending_ = false;
     if (!IsShown()) RestoreFromTray();
-    MessageBoxW(hwnd_, resultNotice_.text.c_str(), tr::kAppTitle, MB_OK | MB_ICONERROR);
+    MessageBoxW(hwnd_, resultNotice_.text.c_str(), txt::kAppTitle, MB_OK | MB_ICONERROR);
   }
   UpdateTrayTip();
   RearmPoll();
@@ -290,8 +306,8 @@ void MainWindow::OnForeignApproval(ApplyDone& d) {
   bool approved = false;
   if (!exitPending_ && !exiting_) {
     if (!IsShown()) RestoreFromTray();
-    const std::wstring q = tr::PersistForeignConfirm(d.txn.foreign, fileW, wantW);
-    approved = MessageBoxW(hwnd_, q.c_str(), tr::kAppTitle, MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) == IDYES;
+    const std::wstring q = txt::PersistForeignConfirm(d.txn.foreign, fileW, wantW);
+    approved = MessageBoxW(hwnd_, q.c_str(), txt::kAppTitle, MB_YESNO | MB_ICONWARNING | MB_DEFBUTTON2) == IDYES;
   }
   if (approved) {
     // Onay penceresi açıkken durum değişmiş olabilir: yalnız hâlâ uygunsa devam edilir (ve dosya sürümü çekirdekte yeniden denetlenir).
@@ -300,11 +316,11 @@ void MainWindow::OnForeignApproval(ApplyDone& d) {
       StartApply(wantW, false, sha, true);
       return;
     }
-    resultNotice_ = {Level::Warn, tr::kPersistForeignStale};
+    SetNotice([]() { return Notice{Level::Warn, txt::kPersistForeignStale()}; });
     RequestPoll(true);
     RequestOemInspect();
   } else {
-    resultNotice_ = {Level::Info, tr::kPersistForeignDeclined};
+    SetNotice([]() { return Notice{Level::Info, txt::kPersistForeignDeclined()}; });
     log_.Write(LogLevel::Info, "UI: overwriting the foreign OEM value was not approved; nothing applied");
   }
   UpdateTrayTip();
@@ -324,7 +340,7 @@ void MainWindow::BlockShutdown(bool on) {
   if (!u || !hwnd_) return;
   if (on) {
     if (Create f = reinterpret_cast<Create>(reinterpret_cast<void*>(GetProcAddress(u, "ShutdownBlockReasonCreate"))))
-      f(hwnd_, L"GPU güç profili uygulanıyor (EC ve OEM profil dosyası yazımı sürüyor).");
+      f(hwnd_, txt::kShutdownReason());
   } else {
     if (Destroy f = reinterpret_cast<Destroy>(reinterpret_cast<void*>(GetProcAddress(u, "ShutdownBlockReasonDestroy")))) f(hwnd_);
   }

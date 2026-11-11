@@ -16,8 +16,8 @@ namespace mgp {
 namespace win {
 
 using namespace ids;
-using tr::Level;
-using tr::Notice;
+using txt::Level;
+using txt::Notice;
 
 struct MainWindow::TaskMsg {
   TaskOp op = TaskOp::Probe;
@@ -79,24 +79,30 @@ void MainWindow::OnTaskDone(TaskMsg* mp) {
       break;
     case TaskOp::EnableAutostart:
       if (!m->opOk) {
-        resultNotice_ = tr::AutostartEnableFailedNotice(Widen(m->err));
+        {
+          const std::wstring e = Widen(m->err);
+          SetNotice([e]() { return txt::AutostartEnableFailedNotice(e); });
+        }
         log_.Write(LogLevel::Error, "autostart task create failed: " + m->err);
       } else if (!active) {
-        resultNotice_ = tr::AutostartNotVerifiedNotice();
+        SetNotice([]() { return txt::AutostartNotVerifiedNotice(); });
         log_.Write(LogLevel::Warn, "autostart task registered but not verified as active for this exe");
       } else {
-        resultNotice_ = tr::AutostartOnNotice();
+        SetNotice([]() { return txt::AutostartOnNotice(); });
         log_.Write(LogLevel::Info, "UI: autostart task created and verified");
       }
       break;
     case TaskOp::DisableAutostart:
       if (TaskRemovalConfirmed(m->opOk, m->autostart.known, m->autostart.exists)) {
         autostartOn_ = false;
-        resultNotice_ = tr::AutostartOffNotice();
+        SetNotice([]() { return txt::AutostartOffNotice(); });
         log_.Write(LogLevel::Info, "UI: autostart task removed and verified gone");
       } else {
         const std::string why = !m->err.empty() ? m->err : std::string(m->autostart.known ? "task still registered" : "task scheduler unreachable");
-        resultNotice_ = tr::AutostartDisableFailedNotice(Widen(why));
+        {
+          const std::wstring e = Widen(why);
+          SetNotice([e]() { return txt::AutostartDisableFailedNotice(e); });
+        }
         log_.Write(LogLevel::Warn, "autostart task removal not confirmed: " + why);
       }
       break;
@@ -107,7 +113,7 @@ void MainWindow::OnTaskDone(TaskMsg* mp) {
 void MainWindow::OnAutostartToggle(bool want) {
   if (exiting_) return;
   if (taskOpInFlight_) {
-    resultNotice_ = tr::AutostartBusyNotice();
+    SetNotice([]() { return txt::AutostartBusyNotice(); });
     Refresh();  // anahtar gerçek duruma geri döner
     return;
   }
@@ -118,7 +124,7 @@ void MainWindow::OnAutostartToggle(bool want) {
 #ifndef MGP_DEMO
   if (want && !IsTrustedInstallPath(SelfPath())) {
     // Yükseltilmiş bir oturum-açılışı görevi, kullanıcının yazabildiği klasördeki programı çalıştırmamalı (RegisterAutostartTask da reddeder).
-    resultNotice_ = tr::AutostartUntrustedPathNotice();
+    SetNotice([]() { return txt::AutostartUntrustedPathNotice(); });
     Refresh();
     return;
   }

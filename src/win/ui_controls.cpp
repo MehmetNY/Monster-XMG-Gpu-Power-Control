@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <cmath>
 
+#include "strings.h"
+
 namespace mgp {
 namespace win {
 namespace ui {
@@ -259,8 +261,23 @@ void StepAnim(HWND h, CtlState* st) {
 
 void Click(HWND h, CtlState* st) {
   if (st->kind == Kind::Check) SetChecked(h, st, !st->checked, true);
+  else if (st->kind == Kind::Lang) st->checked = !st->checked;  // klavye (Boşluk/Enter): diğer dile geç
   InvalidateRect(h, nullptr, FALSE);
   Notify(h);
+}
+
+// Dil seçici: fareyle tıklanan YARIM seçilir (sol = EN, sağ = TR). Zaten seçili olan yarıma tıklamak hiçbir şey yapmaz.
+void ClickLang(HWND h, CtlState* st, POINT pt) {
+  RECT rc;
+  GetClientRect(h, &rc);
+  const bool wantEn = pt.x < (rc.right - rc.left) / 2;
+  if (wantEn != st->checked) {
+    st->checked = wantEn;
+    InvalidateRect(h, nullptr, FALSE);
+    Notify(h);
+  } else {
+    InvalidateRect(h, nullptr, FALSE);
+  }
 }
 
 void PaintProfile(Canvas& cv, HWND h, const CtlState& st) {
@@ -282,7 +299,7 @@ void PaintProfile(Canvas& cv, HWND h, const CtlState& st) {
 
   // "AKTİF" etiketi (üst orta)
   if (active) {
-    const std::wstring tag = L"AKTİF";
+    const std::wstring tag = txt::kTagActive();
     const SIZE ts = cv.Measure(st.fonts->tinyBold, tag);
     const float pw = static_cast<float>(ts.cx + S(14, dpi)), ph = static_cast<float>(S(16, dpi));
     const float px = (W - pw) / 2.f, py = static_cast<float>(S(8, dpi));
@@ -308,7 +325,7 @@ void PaintProfile(Canvas& cv, HWND h, const CtlState& st) {
 
   // alt başlık
   RECT rs = {S(6, dpi), cv.h() - S(27, dpi), cv.w() - S(6, dpi), cv.h() - S(9, dpi)};
-  if (busy) cv.Text(st.fonts->tiny, L"Uygulanıyor…", rs, kAccentHi, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+  if (busy) cv.Text(st.fonts->tiny, txt::kChipApplying(), rs, kAccentHi, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
   else cv.Text(st.fonts->tiny, st.sub, rs, active ? kAccentHi : (dim ? kTextFaint : kTextDim),
                DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 
@@ -350,7 +367,25 @@ void PaintCheck(Canvas& cv, HWND h, const CtlState& st) {
     cv.StrokeRoundRect(0, 0, W, H, static_cast<float>(S(7, dpi)), 1.5f * line, kText, .6f);
 }
 
-void PaintAction(Canvas& cv, HWND h, const CtlState& st) {
+// "EN | TR": iki bölmeli küçük dil seçici. Seçili bölme vurgu renginde dolu hap, diğeri soluk metindir.
+void PaintLang(Canvas& cv, HWND h, const CtlState& st) {
+  const float W = static_cast<float>(cv.w()), H = static_cast<float>(cv.h());
+  const int dpi = st.dpi;
+  const float line = static_cast<float>(dpi) / 96.f;
+  cv.Clear(st.bg);
+  cv.FillRoundRect(0, 0, W, H, H / 2.f, kCard);
+  cv.StrokeRoundRect(0, 0, W, H, H / 2.f, line, st.hot ? kTextFaint : kBorder);
+  const float inset = static_cast<float>(S(2, dpi)), seg = W / 2.f;
+  const bool en = st.checked;
+  const float px = en ? inset : seg;
+  cv.FillRoundRect(px, inset, seg - inset, H - 2.f * inset, (H - 2.f * inset) / 2.f, kAccent);
+  RECT re = {0, 0, static_cast<LONG>(seg), cv.h()}, rt = {static_cast<LONG>(seg), 0, cv.w(), cv.h()};
+  cv.Text(st.fonts->tinyBold, L"EN", re, en ? RGB(255, 255, 255) : kTextDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+  cv.Text(st.fonts->tinyBold, L"TR", rt, en ? kTextDim : RGB(255, 255, 255), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+  if (GetFocus() == h && g_kbNav) cv.StrokeRoundRect(0, 0, W, H, H / 2.f, 1.5f * line, kText, .85f);
+}
+
+void PaintAction(Canvas& cv, HWND h, const CtlState& st, bool mini = false) {
   const float W = static_cast<float>(cv.w()), H = static_cast<float>(cv.h());
   const int dpi = st.dpi;
   const bool enabled = IsWindowEnabled(h) != FALSE;
@@ -359,8 +394,8 @@ void PaintAction(Canvas& cv, HWND h, const CtlState& st) {
   const COLORREF fill = !enabled ? kCard : (st.down ? kCard : (st.hot ? kCardHover : kCardHi));
   cv.FillRoundRect(0, 0, W, H, static_cast<float>(S(9, dpi)), fill);
   cv.StrokeRoundRect(0, 0, W, H, static_cast<float>(S(9, dpi)), line, (st.hot && enabled) ? kTextFaint : kBorder);
-  RECT rc = {S(8, dpi), 0, cv.w() - S(8, dpi), cv.h()};
-  cv.Text(st.fonts->normal, TextOf(h), rc, enabled ? kText : kTextFaint, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+  RECT rc = {S(mini ? 4 : 8, dpi), 0, cv.w() - S(mini ? 4 : 8, dpi), cv.h()};
+  cv.Text(mini ? st.fonts->small : st.fonts->normal, TextOf(h), rc, enabled ? kText : kTextFaint, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
   if (GetFocus() == h && g_kbNav)
     cv.StrokeRoundRect(static_cast<float>(S(3, dpi)), static_cast<float>(S(3, dpi)), W - static_cast<float>(S(6, dpi)),
                        H - static_cast<float>(S(6, dpi)), static_cast<float>(S(7, dpi)), 1.5f * line, kText, .85f);
@@ -400,6 +435,8 @@ LRESULT CALLBACK CtlProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
             case Kind::Profile: PaintProfile(cv, h, *st); break;
             case Kind::Check: PaintCheck(cv, h, *st); break;
             case Kind::Action: PaintAction(cv, h, *st); break;
+            case Kind::Mini: PaintAction(cv, h, *st, true); break;
+            case Kind::Lang: PaintLang(cv, h, *st); break;
           }
           cv.BlitTo(dc, 0, 0);
         }
@@ -444,8 +481,12 @@ LRESULT CALLBACK CtlProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
         RECT rc;
         GetClientRect(h, &rc);
         const POINT pt = {static_cast<short>(LOWORD(lp)), static_cast<short>(HIWORD(lp))};
-        if (had && PtInRect(&rc, pt)) Click(h, st);
-        else InvalidateRect(h, nullptr, FALSE);
+        if (had && PtInRect(&rc, pt)) {
+          if (st->kind == Kind::Lang) ClickLang(h, st, pt);
+          else Click(h, st);
+        } else {
+          InvalidateRect(h, nullptr, FALSE);
+        }
       }
       return 0;
     case WM_CAPTURECHANGED:

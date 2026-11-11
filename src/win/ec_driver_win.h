@@ -1,6 +1,6 @@
 // OEM Uniwill "ACPIDriver" çekirdek aygıtına doğrudan DeviceIoControl ile EC okuma/yazma.
 // OEM ACPIDriverDll.dll / Control Center / GCUService GEREKMEZ ve yüklenmez.
-// ABI, ACPIDriverDll.dll içindeki ReadEC/WriteEC makine kodundan çıkarıldı (docs/SURUCU_ABI.md).
+// ABI, ACPIDriverDll.dll içindeki ReadEC/WriteEC makine kodundan çıkarıldı (docs/DRIVER_ABI.md).
 #pragma once
 #include "../core/interfaces.h"
 #include "win_util.h"

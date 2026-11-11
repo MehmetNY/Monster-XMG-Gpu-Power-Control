@@ -1,4 +1,6 @@
-# Cihaz kabul testi (v1.4.0) — kendi cihazınızda
+# Cihaz kabul testi (v1.5.0) — kendi cihazınızda
+
+[English](DEVICE_ACCEPTANCE_TEST.md) · **Türkçe**
 
 > **Bu listeyi SİZ, kendi Monster Tulpar T5 V21.7 cihazınızda yapacaksınız.** Uygulama gerçek donanımda henüz çalıştırılmadı; bu adımların hiçbiri yazar tarafından gerçek cihazda yürütülmedi.
 > Sonucu siz doldurun; geçmeyen adımı **geçti diye varsaymayın**. Bir adım kalırsa bir [Issue](../../../issues) açıp çıktıyı ve `%LOCALAPPDATA%\MonsterGpuPower\logs\mgp.log` dosyasını ekleyin.
@@ -19,6 +21,8 @@ Ortak değişken (her PowerShell penceresinde bir kez):
 ```powershell
 $d = 'C:\Program Files\OEM\Control Center\UniwillService\MyControlCenter\UserPofiles'
 ```
+
+Arayüz dili (EN | TR anahtarı, kurulum dili sayfası) aşağıdaki adımların hiçbirini değiştirmez; alıntılanan iletiler iki dilde de vardır — burada Türkçe metin verilmiştir, İngilizce metin [DEVICE_ACCEPTANCE_TEST.md](DEVICE_ACCEPTANCE_TEST.md) içindedir.
 
 ## 0. Hazırlık: yedek ve başlangıç kaydı (uygulamayı AÇMADAN önce)
 
@@ -45,11 +49,11 @@ $d = 'C:\Program Files\OEM\Control Center\UniwillService\MyControlCenter\UserPof
 
 ## 1. Kurulum, ilk açılışta SIFIR yazma
 
-1. `MONSTER_GPU_POWER_Setup.exe` ile kurun (SHA-256'yı `SHA256SUMS.txt` ile karşılaştırın). Kurulum, eski `MonsterGpuPower_ApplyAtLogon` görevi varsa **siler** (hiçbir profil uygulamaz);
+1. `MONSTER_GPU_POWER_Setup.exe` ile kurun (SHA-256'yı `SHA256SUMS.txt` ile karşılaştırın); kurulumun ilk sayfasında dilinizi seçin. Kurulum, eski `MonsterGpuPower_ApplyAtLogon` görevi varsa **siler** (hiçbir profil uygulamaz);
    OEM klasörüne dokunmaz.
 2. 0.3 komutlarını yeniden çalıştırın. **Geçti:** dosya listesi, boyutlar, `LastWriteTime` ve SHA-256'lar **birebir aynı**; yeni `.bak` yok. ☐ Geçti ☐ Kaldı
 3. Uygulamayı açın. Durum şeridinde cihaz kimliği *doğrulandı*, sürücü *Bağlı* görünmeli; *KALICI UYGULAMA* kutusunda dosyadaki gerçek değer görünmeli
-   (ör. `OEM profilinde 140 W kayıtlı · Anlık profil: 140 W (OEM varsayılanı)`). Yalnızca açmak hiçbir şey yazmamalıdır; 0.3'ü tekrar edip doğrulayın. ☐ Geçti ☐ Kaldı
+   (ör. `OEM profilinde 140 W kayıtlı · Anlık profil: 140 W (OEM varsayılanı)`). Yalnızca açmak hiçbir şey yazmamalıdır; 0.3'ü tekrar edip doğrulayın. Pencere, kurulumda seçtiğiniz dilde açılmalıdır. ☐ Geçti ☐ Kaldı
 
 ## 2. İlk kalıcı profil (önerilen sıra: 145 → 150)
 
@@ -84,6 +88,7 @@ $d = 'C:\Program Files\OEM\Control Center\UniwillService\MyControlCenter\UserPof
 * **Uygulamayı açılışta başlat:** açın; `schtasks /query /tn MonsterGpuPower_Autostart` görevi göstermeli. Yeniden oturum açın: uygulama ~10 sn sonra **tepside** başlamalı ve **hiçbir profil uygulamamalı**
   (0.3 komutlarıyla dosyaların değişmediğini doğrulayın). Kapatınca görev silinmeli. ☐ Geçti ☐ Kaldı
 * **Çıkışta OEM 140 W'a dön:** açın, bir profil seçin, uygulamadan çıkın: anlık değer 140 W olmalı (NVIDIA `140.00 W`), OEM **dosyası değişmemeli** (seçtiğiniz değer kalmalı). ☐ Geçti ☐ Kaldı
+* **EN | TR:** anahtarın diğer yarısına tıklayın; tüm yazılar hemen değişmeli; uygulamayı kapatıp yeniden açın: seçiminiz korunmalı. ☐ Geçti ☐ Kaldı
 
 ## 7. Geri dönüş
 

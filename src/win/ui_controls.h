@@ -73,7 +73,8 @@ class Canvas {
 // ---- Özel kontrol sınıfı ---------------------------------------------------------------------------------
 // Check: tema renkli açma/kapama anahtarı (switch). Davranış (tıklama/Boşluk/Enter ile değişir, MGPM_SETCHECK/GETCHECK) onay
 // kutusuyla aynıdır; yalnız görünüm değişti.
-enum class Kind { Profile, Check, Action };
+// Mini: daha küçük eylem düğmesi ("Hakkında"). Lang: iki bölmeli "EN | TR" dil seçici (MGPM_SETCHECK/GETCHECK: 1 = EN, 0 = TR).
+enum class Kind { Profile, Check, Action, Mini, Lang };
 
 enum : UINT {
   MGPM_SETSUB = WM_APP + 100,   // lParam: const wchar_t* alt başlık (Profile)

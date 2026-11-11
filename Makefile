@@ -43,6 +43,7 @@ $(B)/prod/app_res.o $(B)/demo/app_res.o: res/app.rc res/app.ico res/app.manifest
 
 # Birim testleri (ana makinede yerel derleme; donanım gerektirmez)
 test:
+	@mkdir -p $(B)
 	g++ -std=c++17 -Wall -Wextra -Wpedantic -Wshadow -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -o $(B)/mgp_tests tests/test_main.cpp $(CORE_SRC)
 	$(B)/mgp_tests
 

@@ -322,11 +322,10 @@ TEST(persist_ownership_survives_repeated_clicks_and_a_foreign_value_is_never_cla
   }
 }
 
-// Kullanıcıya görünen metinler: kalıcılığın ne olduğu DOĞRU anlatılmalı (OEM-profil tabanlı; firmware/BIOS/EC kalıcı yazımı DEĞİL).
-// strings_tr.h Windows'a özgü başlık içerdiğinden burada DERLENMEZ; kaynak metni okunup yasak/zorunlu ifadeler denetlenir.
-TEST(ui_texts_never_overclaim_what_persistence_is) {
-  std::ifstream f("src/win/strings_tr.h", std::ios::binary);
-  CHECK(f.good());  // testler depo kökünden çalıştırılır (make test)
+// Kullanıcıya görünen metinler: kalıcılığın ne olduğu DOĞRU anlatılmalı (OEM-profil tabanlı; firmware/BIOS/EC kalıcı yazımı DEĞİL) - HER İKİ DİLDE.
+// strings.h Windows'a özgü başlık içerdiğinden burada DERLENMEZ; kaynak metni okunup yasak/zorunlu ifadeler denetlenir.
+static std::string UiTextSource() {
+  std::ifstream f("src/win/strings.h", std::ios::binary);
   std::stringstream ss;
   ss << f.rdbuf();
   // Yalnız kullanıcıya görünen metinler denetlenir: satır yorumları (// ...) ayıklanır.
@@ -340,9 +339,79 @@ TEST(ui_texts_never_overclaim_what_persistence_is) {
       t += line + "\n";
     }
   }
+  // Bitişik dize sabitleri birleştirilir ("..." <boşluk/satır> L"..." -> "...")
+  std::string out;
+  for (size_t i = 0; i < t.size();) {
+    if (t[i] == '"') {
+      size_t j = i + 1;
+      while (j < t.size() && (t[j] == ' ' || t[j] == '\n' || t[j] == '\t')) ++j;
+      if (j + 1 < t.size() && t[j] == 'L' && t[j + 1] == '"' && j > i + 1) {
+        i = j + 2;
+        continue;
+      }
+    }
+    out += t[i++];
+  }
+  return out;
+}
+
+TEST(ui_texts_never_overclaim_what_persistence_is) {
+  std::ifstream probe("src/win/strings.h", std::ios::binary);
+  CHECK(probe.good());  // testler depo kökünden çalıştırılır (make test)
+  const std::string t = UiTextSource();
+  // zorunlu kalıcılık açıklaması: her iki dilde BİREBİR
   CHECK(t.find("Seçili GPU güç profili, mevcut OEM profil dosyasına kaydedilir. MONSTER GPU POWER uygulamasının Windows açılışında "
-               "\"\n    L\"çalışması gerekmez. OEM GCUService kurulu ve çalışır olmalıdır.") != std::string::npos);
-  const char* forbidden[] = {"EC firmware", "firmware kalıcı", "BIOS modifikasyonu", "BIOS'a yaz", "BIOS'u değiştir", "işletim sistemlerinden bağımsız",
-                             "Windows açılışında uygula", "Geçici", "geçici profil", "Tanılama", "Günlüğü aç", "Dış müdahale"};
-  for (const char* w : forbidden) CHECK(t.find(w) == std::string::npos);
+               "çalışması gerekmez. OEM GCUService kurulu ve çalışır olmalıdır.") != std::string::npos);
+  CHECK(t.find("The selected GPU power profile is saved to the existing OEM profile file. MONSTER GPU POWER does not need to run at "
+               "Windows startup. The OEM GCUService must be installed and running.") != std::string::npos);
+  const char* forbidden_tr[] = {"EC firmware", "firmware kalıcı", "BIOS modifikasyonu", "BIOS'a yaz", "BIOS'u değiştir", "işletim sistemlerinden bağımsız",
+                                "Windows açılışında uygula", "Geçici", "geçici profil", "Tanılama", "Günlüğü aç", "Dış müdahale"};
+  for (const char* w : forbidden_tr) CHECK(t.find(w) == std::string::npos);
+  // İngilizce karşılıkları (küçük harfe indirgenmiş metinde aranır)
+  std::string lo;
+  for (char c : t) lo += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+  const char* forbidden_en[] = {"firmware", "bios modif", "write to the bios", "writes to the bios", "written to the bios", "flash", "independent of the operating system",
+                                "independent of any operating system", "survives any", "regardless of the os", "apply at windows startup", "apply at startup",
+                                "temporary", "diagnostics", "open the log", "external change"};
+  for (const char* w : forbidden_en) CHECK(lo.find(w) == std::string::npos);
+}
+
+// Her kullanıcı metni iki dilde de tanımlı olmalı: T()/Tw() çağrılarında boş ya da özdeş (çevrilmemiş) çift olmamalı.
+TEST(ui_texts_have_both_languages_and_english_is_not_a_copy_of_turkish) {
+  const std::string t = UiTextSource();
+  size_t pairs = 0, ident = 0;
+  for (size_t pos = 0;;) {
+    const size_t a = t.find("T(L\"", pos), b = t.find("Tw(L\"", pos);
+    size_t at = std::min(a, b);
+    if (at == std::string::npos) break;
+    const bool tw = at == b;
+    size_t i = at + (tw ? 3 : 2);  // 'L"' üzerinde
+    auto readLit = [&](size_t& k) {  // k: L" konumu -> dize içeriği; k, kapanış tırnağının ardına gelir
+      std::string v;
+      k += 2;
+      while (k < t.size() && t[k] != '"') {
+        if (t[k] == '\\') {
+          v += t[k++];
+        }
+        v += t[k++];
+      }
+      ++k;
+      return v;
+    };
+    std::string tr = readLit(i);
+    // virgülden sonra İngilizce sabit
+    while (i < t.size() && t[i] != 'L') ++i;
+    if (i + 1 >= t.size() || t[i + 1] != '"') {
+      pos = at + 2;
+      continue;
+    }
+    const std::string en = readLit(i);
+    ++pairs;
+    CHECK(!tr.empty() || !en.empty());
+    CHECK(!en.empty() == !tr.empty());
+    if (tr == en && tr.size() > 3) ++ident;
+    pos = i;
+  }
+  CHECK(pairs > 150);  // beklenen metin sayısı (alt sınır: yanlışlıkla ayrıştırıcının hiçbir şey bulmaması)
+  CHECK(ident < 4);    // yalnız dilden bağımsız kısa ifadeler özdeş olabilir (ör. "  (+")
 }

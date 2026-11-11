@@ -18,16 +18,14 @@
 namespace mgp {
 namespace win {
 
-using tr::Level;
-using tr::Notice;
+using txt::Level;
+using txt::Notice;
 
 namespace {
 
 using namespace ids;
 
 enum : int { IDM_SHOW = 2001, IDM_INFO, IDM_EXIT };
-const wchar_t* const kSubs[6] = {L"varsayılan", L"canlı test yok", L"canlı test yok",
-                                 L"OEM profili",       L"OEM üstü",      L"VBIOS azami"};
 
 // Tepsi simgesi eklenemezse (Explorer/görev çubuğu oturum açılışında geç hazırlanabilir) 3 sn aralıkla en çok 20 kez (~60 sn) yeniden denenir;
 // sonra uygulama ulaşılamaz kalmasın diye pencere gösterilir. Sonsuz döngü yok.
@@ -138,7 +136,7 @@ bool MainWindow::Create(bool startHidden) {
   if (!RegisterClassExW(&wc) && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) return false;
   if (!ui::RegisterControlClass(hi_)) return false;
 
-  const wchar_t* title = Backends::IsDemoBuild() ? L"MONSTER GPU POWER — DEMO (SİMÜLASYON, gerçek donanım değil)" : tr::kAppTitle;
+  const wchar_t* title = Backends::IsDemoBuild() ? txt::kWindowTitleDemo() : txt::kAppTitle;
   const DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_CLIPCHILDREN;
   hwnd_ = CreateWindowExW(0, ClassName(), title, style, CW_USEDEFAULT, CW_USEDEFAULT, 700, 600, nullptr, nullptr, hi_, this);
   if (!hwnd_) return false;
@@ -175,13 +173,15 @@ void MainWindow::CreateChildren() {
   for (int i = 0; i < 6; ++i) {
     const std::wstring t = std::to_wstring(kProfiles[i].watts) + L" W";
     prof_[i] = ui::CreateControl(hwnd_, IDC_PROF0 + i, ui::Kind::Profile, t.c_str(), &fonts_, dpi_, ui::kBg);
-    SendMessageW(prof_[i], ui::MGPM_SETSUB, 0, reinterpret_cast<LPARAM>(kSubs[i]));
+    SendMessageW(prof_[i], ui::MGPM_SETSUB, 0, reinterpret_cast<LPARAM>(txt::ProfileSub(i)));
   }
-  chkAutostart_ = ui::CreateControl(hwnd_, IDC_CHK_AUTOSTART, ui::Kind::Check, tr::kAutostartLabel, &fonts_, dpi_, ui::kBg);
-  chkRestore_ = ui::CreateControl(hwnd_, IDC_CHK_RESTORE, ui::Kind::Check, tr::kRestoreLabel, &fonts_, dpi_, ui::kBg);
-  btnRefresh_ = ui::CreateControl(hwnd_, IDC_BTN_REFRESH, ui::Kind::Action, L"Yenile", &fonts_, dpi_, ui::kBg);
-  btnConsent_ = ui::CreateControl(hwnd_, IDC_BTN_CONSENT, ui::Kind::Action, L"Onayları sıfırla", &fonts_, dpi_, ui::kBg);
-  btnAbout_ = ui::CreateControl(hwnd_, IDC_BTN_ABOUT, ui::Kind::Action, tr::kAboutLabel, &fonts_, dpi_, ui::kBg);
+  chkAutostart_ = ui::CreateControl(hwnd_, IDC_CHK_AUTOSTART, ui::Kind::Check, txt::kAutostartLabel(), &fonts_, dpi_, ui::kBg);
+  chkRestore_ = ui::CreateControl(hwnd_, IDC_CHK_RESTORE, ui::Kind::Check, txt::kRestoreLabel(), &fonts_, dpi_, ui::kBg);
+  btnRefresh_ = ui::CreateControl(hwnd_, IDC_BTN_REFRESH, ui::Kind::Action, txt::kRefresh(), &fonts_, dpi_, ui::kBg);
+  btnConsent_ = ui::CreateControl(hwnd_, IDC_BTN_CONSENT, ui::Kind::Action, txt::kResetConsents(), &fonts_, dpi_, ui::kBg);
+  btnAbout_ = ui::CreateControl(hwnd_, IDC_BTN_ABOUT, ui::Kind::Mini, txt::kAboutLabel(), &fonts_, dpi_, ui::kBg);
+  btnLang_ = ui::CreateControl(hwnd_, IDC_LANG, ui::Kind::Lang, txt::kLangToggleName(), &fonts_, dpi_, ui::kBg);
+  SendMessageW(btnLang_, ui::MGPM_SETCHECK, CurrentLang() == Lang::En ? 1 : 0, 0);
 }
 
 void MainWindow::Layout() {
@@ -202,7 +202,7 @@ void MainWindow::Layout() {
     {
       ui::Canvas tmp(1, 1);
       if (tmp.ok()) {
-        const int hh = CalcTextHeight(tmp, fonts_.tiny, tr::kPersistDesc, cw - 2 * pad);
+        const int hh = CalcTextHeight(tmp, fonts_.tiny, txt::kPersistDesc(), cw - 2 * pad);
         descH = std::min(S(52), std::max(S(16), hh + S(2)));
       }
     }
@@ -220,10 +220,13 @@ void MainWindow::Layout() {
   rcDesc_[0] = {mx + dx, oy + S(28), mx + colW, oy + S(28) + S(30)};
   rcDesc_[1] = {col2 + dx, oy + S(28), col2 + colW, oy + S(28) + S(30)};
 
-  const int ay = oy + S(58) + S(6), ah = S(34), aw = (cw - 3 * gap) / 4, aboutW = S(120);
+  const int ay = oy + S(58) + S(6), ah = S(34), aw = (cw - 3 * gap) / 4, aboutW = S(66), aboutH = S(26);
   MoveWindow(btnRefresh_, mx, ay, aw, ah, TRUE);
   MoveWindow(btnConsent_, mx + aw + gap, ay, aw, ah, TRUE);
-  MoveWindow(btnAbout_, mx + cw - aboutW, ay, aboutW, ah, TRUE);
+  MoveWindow(btnAbout_, mx + cw - aboutW, ay + (ah - aboutH) / 2, aboutW, aboutH, TRUE);  // küçük düğme, satırda dikey ortalı
+  // Dil seçici (EN | TR): başlık satırının sağ ucu; durum çipi bunun soluna yaslanır (bkz. PaintAll).
+  rcLang_ = {mx + cw - S(58), S(24), mx + cw, S(24) + S(26)};
+  MoveWindow(btnLang_, rcLang_.left, rcLang_.top, rcLang_.right - rcLang_.left, rcLang_.bottom - rcLang_.top, TRUE);
   rcFooter_ = {mx, ay + ah + S(12), mx + cw, ay + ah + S(12) + S(18)};
   clientH_ = rcFooter_.bottom + S(14);
 }
@@ -232,7 +235,7 @@ void MainWindow::ApplyLayoutDpi(int d) {
   if (d == dpi_ && fonts_.dpi == d && fonts_.normal) return;
   dpi_ = d;
   fonts_.Create(dpi_);
-  HWND all[] = {prof_[0], prof_[1], prof_[2], prof_[3], prof_[4], prof_[5], chkAutostart_, chkRestore_, btnRefresh_, btnConsent_, btnAbout_};
+  HWND all[] = {prof_[0], prof_[1], prof_[2], prof_[3], prof_[4], prof_[5], chkAutostart_, chkRestore_, btnRefresh_, btnConsent_, btnAbout_, btnLang_};
   for (HWND c : all)
     if (c) SendMessageW(c, ui::MGPM_SETSTYLE, static_cast<WPARAM>(dpi_), reinterpret_cast<LPARAM>(&fonts_));
 }
@@ -452,21 +455,12 @@ Notice MainWindow::CurrentNotice() const {
   if (!resultNotice_.empty()) return resultNotice_;
   Notice n;
   if (!haveState_) {
-    n.text = L"Cihaz ve sürücü durumu okunuyor…";
+    n.text = txt::kNoticeReading();
     return n;
   }
-  if (!cur_.blockers.empty()) return tr::FirstBlockerNotice(cur_);
-  if (!cur_.consistent) {
-    n.level = Level::Warn;
-    n.text = L"EC " + (cur_.ecProfile ? tr::Watts(cur_.ecProfile) : std::wstring(L"tanınmayan bir durum")) +
-             L" gösteriyor, NVIDIA ise " + (cur_.nv.ok ? tr::Num1(cur_.nv.limitW) + L" W" : std::wstring(L"?")) +
-             L" bildiriyor. NVML birkaç saniye gecikebilir; sürerse başka bir yazılım değiştirmiş olabilir.";
-    return n;
-  }
-  n.text = Backends::IsDemoBuild()
-               ? L"SİMÜLASYON: bu derleme sahte donanımla çalışır, gerçek EC'ye hiçbir şey yazılmaz."
-               : L"Hazır. Bir profil seçin: değer EC'den geri okunur, NVIDIA sürücüsüyle doğrulanır ve OEM profil dosyasına kalıcı kaydedilir; "
-               L"tutmazsa önceki değere dönülür.";
+  if (!cur_.blockers.empty()) return txt::FirstBlockerNotice(cur_);
+  if (!cur_.consistent) return txt::InconsistentNotice(cur_);
+  n.text = Backends::IsDemoBuild() ? txt::kNoticeDemo() : txt::kNoticeReady();
   return n;
 }
 
@@ -500,36 +494,36 @@ void MainWindow::PaintCard(ui::Canvas& cv) {
   cv.StrokeRoundRect(x, y, w, h, static_cast<float>(S(14)), static_cast<float>(dpi_) / 96.f, ui::kBorder);
 
   // ---- sol: aktif profil
-  std::wstring big = L"—", sub = L"Okunuyor…";
+  std::wstring big = L"—", sub = txt::kChipReading();
   COLORREF bigCol = ui::kTextFaint, subCol = ui::kTextDim;
   if (haveState_) {
     if (cur_.activeProfile) {
       big = std::to_wstring(cur_.activeProfile);
       bigCol = ui::kText;
-      sub = L"EC ve NVIDIA tutarlı";
+      sub = txt::kCardAgree();
       subCol = ui::kInfo;
     } else if (cur_.ec.ok && cur_.ecProfile) {
       big = std::to_wstring(cur_.ecProfile);
       bigCol = ui::kWarn;
-      sub = cur_.nv.ok ? L"EC ile NVIDIA uyuşmuyor" : L"NVIDIA doğrulaması yok";
+      sub = cur_.nv.ok ? txt::kCardDisagree() : txt::kCardNoNv();
       subCol = ui::kWarn;
     } else if (cur_.ec.ok) {
       big = L"?";
       bigCol = ui::kWarn;
-      sub = L"Tanınmayan EC durumu";
+      sub = txt::kCardUnknownEc();
       subCol = ui::kWarn;
     } else {
-      sub = cur_.identity.verdict != IdentityVerdict::Exact ? L"Cihaz doğrulanamadı — salt okunur" : L"EC okunamadı";
+      sub = cur_.identity.verdict != IdentityVerdict::Exact ? txt::kCardUnverifiedDevice() : txt::kCardEcUnreadable();
       subCol = ui::kWarn;
     }
   }
   if (applyInFlight_) {
-    sub = L"Uygulanıyor…";
+    sub = txt::kChipApplying();
     subCol = ui::kAccentHi;
   }
   const int lx = rcCard_.left + S(22), ty = rcCard_.top + S(16);
   RECT r1 = {lx, ty, lx + S(190), ty + S(16)};
-  cv.Text(fonts_.tinyBold, L"AKTİF PROFİL", r1, ui::kTextDim, DT_LEFT | DT_TOP | DT_SINGLELINE);
+  cv.Text(fonts_.tinyBold, txt::kCardActive(), r1, ui::kTextDim, DT_LEFT | DT_TOP | DT_SINGLELINE);
   const SIZE sz = cv.Measure(fonts_.watt, big);
   RECT r2 = {lx, rcCard_.top + S(32), lx + sz.cx + 4, rcCard_.top + S(32) + sz.cy};
   cv.Text(fonts_.watt, big, r2, bigCol, DT_LEFT | DT_TOP | DT_SINGLELINE);
@@ -551,13 +545,13 @@ void MainWindow::PaintCard(ui::Canvas& cv) {
     COLORREF col;
   } cells[6];
   const bool hv = haveState_;
-  cells[0] = {L"NVIDIA güç limiti", (hv && cur_.nv.ok) ? tr::Num1(cur_.nv.limitW) + L" W" : L"—", ui::kText};
-  cells[1] = {L"EC 0x0743 / 0x0744", (hv && cur_.ec.ok) ? Hex2W(cur_.ec.ctrl) + L" / " + std::to_wstring(cur_.ec.offset) + L" W" : L"—", ui::kText};
-  cells[2] = {L"Anlık çekiş", (hv && cur_.nv.haveDraw) ? tr::Num1(cur_.nv.drawW) + L" W" : L"—", ui::kText};
-  cells[3] = {L"Sıcaklık", (hv && cur_.nv.haveTemp) ? std::to_wstring(cur_.nv.tempC) + L" °C" : L"—",
+  cells[0] = {txt::kCellNvLimit(), (hv && cur_.nv.ok) ? txt::Num1(cur_.nv.limitW) + L" W" : L"—", ui::kText};
+  cells[1] = {txt::kCellEc(), (hv && cur_.ec.ok) ? Hex2W(cur_.ec.ctrl) + L" / " + std::to_wstring(cur_.ec.offset) + L" W" : L"—", ui::kText};
+  cells[2] = {txt::kCellDraw(), (hv && cur_.nv.haveDraw) ? txt::Num1(cur_.nv.drawW) + L" W" : L"—", ui::kText};
+  cells[3] = {txt::kCellTemp(), (hv && cur_.nv.haveTemp) ? std::to_wstring(cur_.nv.tempC) + L" °C" : L"—",
               (hv && cur_.nv.haveTemp && cur_.nv.tempC >= kTempWarnC) ? ui::kWarn : ui::kText};
-  cells[4] = {L"GPU kullanımı", (hv && cur_.nv.haveUtil) ? std::to_wstring(cur_.nv.utilPct) + L" %" : L"—", ui::kText};
-  cells[5] = {L"VBIOS azami limit", (hv && cur_.nvInitOk && cur_.nvStatic.ok && cur_.nvStatic.maxW > 0) ? tr::Num1(cur_.nvStatic.maxW) + L" W" : L"—", ui::kText};
+  cells[4] = {txt::kCellUtil(), (hv && cur_.nv.haveUtil) ? std::to_wstring(cur_.nv.utilPct) + L" %" : L"—", ui::kText};
+  cells[5] = {txt::kCellVbios(), (hv && cur_.nvInitOk && cur_.nvStatic.ok && cur_.nvStatic.maxW > 0) ? txt::Num1(cur_.nvStatic.maxW) + L" W" : L"—", ui::kText};
   const int gx = rcCard_.left + S(258), colW = (rcCard_.right - S(18) - gx) / 3;
   for (int i = 0; i < 6; ++i) {
     const int cx = gx + (i % 3) * colW, cy = rcCard_.top + S(20) + (i / 3) * S(52);
@@ -570,10 +564,11 @@ void MainWindow::PaintCard(ui::Canvas& cv) {
   // ---- alt şerit
   cv.Line(x + static_cast<float>(S(20)), y + static_cast<float>(S(122)), x + w - static_cast<float>(S(20)), y + static_cast<float>(S(122)),
           static_cast<float>(dpi_) / 96.f, ui::kBorder);
-  std::wstring strip = L"Sürücü: ";
-  strip += haveState_ ? tr::DriverTextFor(cur_) : L"…";
-  strip += L"   •   Cihaz kimliği: ";
-  strip += haveState_ ? tr::IdentityText(cur_.identity.verdict) : L"…";
+  std::wstring strip = txt::kStripDriver();
+  strip += haveState_ ? txt::DriverTextFor(cur_) : L"…";
+  strip += L"   •   ";
+  strip += txt::kStripIdentity();
+  strip += haveState_ ? txt::IdentityText(cur_.identity.verdict) : L"…";
   if (haveState_ && cur_.nvInitOk && cur_.nvStatic.ok && !cur_.nvStatic.name.empty()) strip += L"   •   " + Widen(cur_.nvStatic.name);
   RECT rs = {rcCard_.left + S(22), rcCard_.top + S(126), rcCard_.right - S(22), rcCard_.bottom - S(6)};
   cv.Text(fonts_.tiny, strip, rs, ui::kTextDim, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
@@ -586,27 +581,27 @@ void MainWindow::PaintAll(ui::Canvas& cv) {
   cv.FillRoundRect(static_cast<float>(S(24)), static_cast<float>(S(18)), static_cast<float>(S(5)), static_cast<float>(S(34)),
                    static_cast<float>(S(2)), ui::kAccent);
   RECT rt = {S(40), S(14), S(460), S(46)};
-  cv.Text(fonts_.title, tr::kAppTitle, rt, ui::kText, DT_LEFT | DT_TOP | DT_SINGLELINE);
+  cv.Text(fonts_.title, txt::kAppTitle, rt, ui::kText, DT_LEFT | DT_TOP | DT_SINGLELINE);
   const bool demo = Backends::IsDemoBuild();
   RECT rsub = {S(40), S(46), S(520), S(66)};
-  cv.Text(fonts_.tiny, demo ? L"DEMO — SİMÜLASYON: sahte donanım, gerçek EC'ye yazılmaz" : L"Monster Tulpar T5 V21.7  ·  RTX 3070 Laptop  ·  GPU güç profili",
+  cv.Text(fonts_.tiny, demo ? txt::kHeaderSubDemo() : txt::kHeaderSub(),
           rsub, demo ? ui::kWarn : ui::kTextDim, DT_LEFT | DT_TOP | DT_SINGLELINE);
 
   // durum çipi
-  std::wstring chip = L"Okunuyor…";
+  std::wstring chip = txt::kChipReading();
   COLORREF chipCol = ui::kTextDim;
   if (applyInFlight_) {
-    chip = L"Uygulanıyor…";
+    chip = txt::kChipApplying();
     chipCol = ui::kAccentHi;
   } else if (haveState_ && cur_.CanWrite()) {
-    chip = L"Hazır";
+    chip = txt::kChipReady();
     chipCol = ui::kInfo;
   } else if (haveState_) {
-    chip = L"Yazma kapalı";
-    chipCol = tr::FirstBlockerNotice(cur_).level == Level::Error ? ui::kErr : ui::kWarn;
+    chip = txt::kChipWriteOff();
+    chipCol = txt::FirstBlockerNotice(cur_).level == Level::Error ? ui::kErr : ui::kWarn;
   }
   const SIZE cs = cv.Measure(fonts_.small, chip);
-  const int chipW = cs.cx + S(36), chipH = S(28), chipX = rcCard_.right - chipW, chipY = S(22);
+  const int chipW = cs.cx + S(36), chipH = S(28), chipX = rcLang_.left - S(10) - chipW, chipY = S(22);
   cv.FillRoundRect(static_cast<float>(chipX), static_cast<float>(chipY), static_cast<float>(chipW), static_cast<float>(chipH),
                    static_cast<float>(chipH) / 2.f, ui::kCard);
   cv.StrokeRoundRect(static_cast<float>(chipX), static_cast<float>(chipY), static_cast<float>(chipW), static_cast<float>(chipH),
@@ -619,10 +614,10 @@ void MainWindow::PaintAll(ui::Canvas& cv) {
   PaintNotice(cv);
   PaintPersist(cv);
 
-  const wchar_t* descs[2] = {tr::kAutostartDesc, tr::kRestoreDesc};
+  const wchar_t* descs[2] = {txt::kAutostartDesc(), txt::kRestoreDesc()};
   for (int i = 0; i < 2; ++i)
     cv.Text(fonts_.tiny, descs[i], rcDesc_[i], ui::kTextDim, DT_LEFT | DT_TOP | DT_WORDBREAK | DT_END_ELLIPSIS);
-  const std::wstring foot = std::wstring(L"v") + tr::kVersion + L"  ·  Ağ bağlantısı, telemetri ve reklam yoktur  ·  Üretici yazılımından bağımsız bir topluluk aracıdır";
+  const std::wstring foot = std::wstring(L"v") + txt::kVersion + L"  ·  " + txt::kFooterTail();
   cv.Text(fonts_.tiny, foot, rcFooter_, ui::kTextFaint, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 }
 
@@ -637,8 +632,8 @@ void MainWindow::PaintPersist(ui::Canvas& cv) {
   else cv.StrokeRoundRect(x, y, w, h, static_cast<float>(S(14)), line, ui::kBorder);
 
   // Başlık + açıklama HER ZAMAN görünür: kalıcılığın ne olduğunu ve neye bağlı olduğunu söyler.
-  cv.Text(fonts_.tinyBold, tr::kPersistTitle, rcPersistTitle_, ui::kTextDim, DT_LEFT | DT_TOP | DT_SINGLELINE);
-  cv.Text(fonts_.tiny, tr::kPersistDesc, rcPersistDesc_, ui::kTextDim, DT_LEFT | DT_TOP | DT_WORDBREAK | DT_END_ELLIPSIS);
+  cv.Text(fonts_.tinyBold, txt::kPersistTitle(), rcPersistTitle_, ui::kTextDim, DT_LEFT | DT_TOP | DT_SINGLELINE);
+  cv.Text(fonts_.tiny, txt::kPersistDesc(), rcPersistDesc_, ui::kTextDim, DT_LEFT | DT_TOP | DT_WORDBREAK | DT_END_ELLIPSIS);
   cv.Line(x + static_cast<float>(S(16)), static_cast<float>(persistSepY_), x + w - static_cast<float>(S(16)),
           static_cast<float>(persistSepY_), line, ui::kBorder);
 
@@ -733,7 +728,7 @@ void MainWindow::OnState(LiveState* sp) {
   cur_ = *s;
   haveState_ = true;
   // Doğrulanamayan geri alma: kritik uyarı kalıcıdır (motor yazma kilidini de tutar).
-  if (cur_.HasBlocker(Blocker::FaultLatched)) resultNotice_ = {Level::Error, tr::BlockerText(Blocker::FaultLatched)};
+  if (cur_.HasBlocker(Blocker::FaultLatched)) SetNotice([]() { return Notice{Level::Error, txt::BlockerText(Blocker::FaultLatched)}; });
   UpdateTrayTip();
   Refresh();
 }
@@ -755,7 +750,7 @@ void MainWindow::OnCommand(int id) {
       Refresh();
       break;
     case IDC_BTN_REFRESH:
-      resultNotice_ = Notice();
+      ClearNotice();
       RequestPoll(true, true);
       Refresh();
       break;
@@ -765,19 +760,61 @@ void MainWindow::OnCommand(int id) {
     case IDC_BTN_ABOUT:
       OnAbout();
       break;
+    case IDC_LANG:
+      OnLanguageToggle();
+      break;
   }
 }
 
 // "Hakkında": yalnız kullanıcı tıklayınca varsayılan tarayıcıda proje sayfasını açar. Uygulamanın kendisi hiçbir ağ bağlantısı kurmaz.
 void MainWindow::OnAbout() {
-  const HINSTANCE r = ShellExecuteW(hwnd_, L"open", tr::kRepoUrl, nullptr, nullptr, SW_SHOWNORMAL);
+  const HINSTANCE r = ShellExecuteW(hwnd_, L"open", txt::kRepoUrl, nullptr, nullptr, SW_SHOWNORMAL);
   if (reinterpret_cast<INT_PTR>(r) <= 32) {
-    resultNotice_ = tr::AboutFailedNotice();
+    SetNotice([]() { return txt::AboutFailedNotice(); });
     log_.Write(LogLevel::Warn, "UI: the project page could not be opened in the default browser");
     Refresh();
   } else {
     log_.Write(LogLevel::Info, "UI: opened the project page in the default browser");
   }
+}
+
+// Sonuç bildirimi: üretici işlev saklanır; dil değişince metin yeni dilde yeniden üretilir.
+void MainWindow::SetNotice(std::function<Notice()> mk) {
+  noticeMk_ = std::move(mk);
+  resultNotice_ = noticeMk_ ? noticeMk_() : Notice();
+}
+void MainWindow::ClearNotice() {
+  noticeMk_ = nullptr;
+  resultNotice_ = Notice();
+}
+
+// EN | TR düğmesi: dil anında değişir (yeniden başlatma gerekmez) ve seçim kaydedilir. Seçim yalnız metinleri etkiler; EC/OEM akışına dokunmaz.
+void MainWindow::OnLanguageToggle() {
+  const Lang want = SendMessageW(btnLang_, ui::MGPM_GETCHECK, 0, 0) ? Lang::En : Lang::Tr;
+  if (want == CurrentLang()) return;
+  ApplyLanguage(want);
+  settings_.language = LangCode(want);
+  settings_.languageInstaller = InstallerLanguageCode();  // seçim, o andaki kurulum diliyle damgalanır (bkz. core/language.h)
+  if (!SaveSettings(settings_)) log_.Write(LogLevel::Warn, "UI: the language choice could not be saved to settings.ini");
+  log_.Write(LogLevel::Info, std::string("UI: language switched to ") + LangCode(want));
+}
+
+void MainWindow::ApplyLanguage(Lang l) {
+  SetCurrentLang(l);
+  SendMessageW(btnLang_, ui::MGPM_SETCHECK, l == Lang::En ? 1 : 0, 0);
+  SetWindowTextW(chkAutostart_, txt::kAutostartLabel());
+  SetWindowTextW(chkRestore_, txt::kRestoreLabel());
+  SetWindowTextW(btnRefresh_, txt::kRefresh());
+  SetWindowTextW(btnConsent_, txt::kResetConsents());
+  SetWindowTextW(btnAbout_, txt::kAboutLabel());
+  SetWindowTextW(btnLang_, txt::kLangToggleName());
+  for (int i = 0; i < 6; ++i) SendMessageW(prof_[i], ui::MGPM_SETSUB, 0, reinterpret_cast<LPARAM>(txt::ProfileSub(i)));
+  SetWindowTextW(hwnd_, Backends::IsDemoBuild() ? txt::kWindowTitleDemo() : txt::kAppTitle);
+  if (noticeMk_) resultNotice_ = noticeMk_();  // son işlem sonucu yeni dilde yeniden üretilir
+  UpdateTrayTip();
+  // Açıklama metinlerinin satır sayısı dile göre değişir: yerleşim ve pencere yüksekliği yeniden hesaplanır.
+  ResizeForDpi(false);
+  Refresh();
 }
 
 // ======================================================================= tepsi
@@ -792,8 +829,8 @@ bool MainWindow::AddTray() {
   nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
   nid.uCallbackMessage = WM_TRAY;
   nid.hIcon = iconSmall_;
-  std::wstring tip = tr::kAppTitle;
-  if (haveState_ && cur_.activeProfile) tip += L" — " + tr::Watts(cur_.activeProfile);
+  std::wstring tip = txt::kAppTitle;
+  if (haveState_ && cur_.activeProfile) tip += L" — " + txt::Watts(cur_.activeProfile);
   std::wcsncpy(nid.szTip, tip.c_str(), 127);
   bool ok = false;
 #ifdef MGP_DEMO
@@ -843,7 +880,7 @@ void MainWindow::OnTrayRetry() {
   if (attempt >= kTrayRetryMax) {
     // Simge eklenemiyor ve pencere gizli: uygulama ulaşılamaz kalmasın diye pencere gösterilir.
     log_.Write(LogLevel::Warn, "tray icon could not be added after repeated retries; showing the window instead");
-    resultNotice_ = {Level::Warn, L"Görev çubuğu bildirim alanı hazır olmadığı için tepside simge eklenemedi; pencere gösterildi."};
+    SetNotice([]() { return txt::TrayFailedNotice(); });
     trayRetries_ = 0;
     RestoreFromTray();
   }
@@ -899,12 +936,11 @@ void MainWindow::ShowMe() {
 void MainWindow::ShowTrayMenu() {
   HMENU menu = CreatePopupMenu();
   if (!menu) return;
-  AppendMenuW(menu, MF_STRING, IDM_SHOW, L"Göster");
-  std::wstring info = L"Aktif profil: ";
-  info += (haveState_ && cur_.activeProfile) ? tr::Watts(cur_.activeProfile) : std::wstring(L"bilinmiyor");
+  AppendMenuW(menu, MF_STRING, IDM_SHOW, txt::kMenuShow());
+  const std::wstring info = txt::MenuActive((haveState_ && cur_.activeProfile) ? cur_.activeProfile : 0);
   AppendMenuW(menu, MF_STRING | MF_GRAYED, IDM_INFO, info.c_str());
   AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-  AppendMenuW(menu, MF_STRING, IDM_EXIT, L"Çıkış");
+  AppendMenuW(menu, MF_STRING, IDM_EXIT, txt::kMenuExit());
   POINT pt;
   GetCursorPos(&pt);
   SetForegroundWindow(hwnd_);
@@ -920,14 +956,14 @@ void MainWindow::RequestExit() {
   if (exiting_) return;
   if (applyInFlight_) {
     exitPending_ = true;  // yazma sürerken kapatılmaz (EC ya da OEM profil dosyası); bitince çıkılır
-    resultNotice_ = {Level::Info, L"Profil uygulaması sürüyor; bitince uygulama kapanacak."};
+    SetNotice([]() { return txt::ExitWaitNotice(); });
     Refresh();
     return;
   }
   if (settings_.restoreOnExit && haveState_ && cur_.CanWrite() && cur_.activeProfile != kOemMaxWatts) {
     log_.Write(LogLevel::Info, "exit: restoring OEM 140 W (live only; the OEM profile file is not touched)");
     SetTimer(hwnd_, IDT_EXITGUARD, 60000, nullptr);
-    resultNotice_ = {Level::Info, L"Çıkış: OEM 140 W profiline dönülüyor…"};
+    SetNotice([]() { return txt::ExitRestoringNotice(); });
     exitPending_ = false;
     StartApply(kOemMaxWatts, true);
     return;

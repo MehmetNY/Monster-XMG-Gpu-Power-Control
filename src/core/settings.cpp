@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include "ec_constants.h"
+#include "language.h"
 #include "sha256.h"
 
 namespace mgp {
@@ -40,7 +41,13 @@ Settings ParseSettings(const std::string& text) {
     else if (k == "consent_over_oem") s.consentOverOem = Flag(v);
     else if (k == "consent_unverified") s.consentUnverified = Flag(v);
     else if (k == "consent_model") s.consentModel = Flag(v);
-    else if (k == "oem_owned_sha") {
+    else if (k == "language") {
+      Lang l;
+      if (ParseLangCode(v, &l)) s.language = LangCode(l);
+    } else if (k == "language_installer") {
+      Lang l;
+      if (ParseLangCode(v, &l)) s.languageInstaller = LangCode(l);
+    } else if (k == "oem_owned_sha") {
       if (IsSha256Hex(v)) s.oem.ownedSha = v;
     } else if (k == "oem_owned_watts") {
       s.oem.ownedWatts = WattsOrZero(v);
@@ -53,11 +60,16 @@ Settings ParseSettings(const std::string& text) {
 
 std::string SerializeSettings(const Settings& s) {
   std::ostringstream o;
-  o << "# MONSTER GPU POWER ayarlari. Elle duzenlemeyin; yalnizca acik/kapali bayraklari, onaylar ve OEM sahiplik kaniti.\n";
+  o << "# MONSTER GPU POWER ayarlari. Elle duzenlemeyin; yalnizca acik/kapali bayraklari, onaylar, arayuz dili ve OEM sahiplik kaniti.\n";
   o << "restore_on_exit=" << (s.restoreOnExit ? 1 : 0) << "\n";
   o << "consent_over_oem=" << (s.consentOverOem ? 1 : 0) << "\n";
   o << "consent_unverified=" << (s.consentUnverified ? 1 : 0) << "\n";
   o << "consent_model=" << (s.consentModel ? 1 : 0) << "\n";
+  // Arayüz dili yalnız kullanıcı seçtiyse yazılır (yoksa otomatik).
+  if (!s.language.empty()) {
+    o << "language=" << s.language << "\n";
+    if (!s.languageInstaller.empty()) o << "language_installer=" << s.languageInstaller << "\n";
+  }
   // OEM sahiplik kanıtı yalnız varsa yazılır.
   if (s.oem.Present()) {
     o << "oem_owned_sha=" << s.oem.ownedSha << "\n";

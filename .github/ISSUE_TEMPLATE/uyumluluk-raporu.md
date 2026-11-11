@@ -1,5 +1,5 @@
 ---
-name: Uyumluluk raporu / destek talebi
+name: Uyumluluk raporu / destek talebi (Türkçe)
 about: Farklı bir cihaz, BIOS veya GPU için salt-okunur denetim çıktısı paylaş
 title: "[Uyumluluk] "
 labels: uyumluluk
@@ -10,7 +10,7 @@ labels: uyumluluk
 
 **Cihaz (marka / model / GPU):**
 
-**README'deki salt-okunur PowerShell denetiminin çıktısı** (seri numarası, kullanıcı adı veya MAC adresi varsa silin):
+**README'deki (README.tr.md) salt-okunur PowerShell denetiminin çıktısı** (seri numarası, kullanıcı adı veya MAC adresi varsa silin):
 
 ```
 (buraya yapıştırın)
@@ -19,3 +19,5 @@ labels: uyumluluk
 **Uygulamanın pencerede gösterdiği engel metni:**
 
 **Windows sürümü:**
+
+**Kullandığınız arayüz dili (EN / TR):**

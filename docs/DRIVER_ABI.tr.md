@@ -1,5 +1,7 @@
 # Sürücü arayüzü (ABI), EC haritası ve bağımsızlık sınırları
 
+[English](DRIVER_ABI.md) · **Türkçe**
+
 Bu belge, uygulamanın EC'ye nasıl eriştiğini ve bunun **neye dayandığını** (kanıt düzeyiyle) kaydeder.
 Kanıt kaynağı: cihaz sahibinin kendi ölçümleri ve üreticinin `ACPIDriverDll.dll` dosyasındaki ReadEC/WriteEC makine kodunun incelenmesi
 (OEM ikilileri bu depoda **yer almaz**). Tek merkezi sabit dosyası: [`src/core/ec_constants.h`](../src/core/ec_constants.h).
@@ -51,6 +53,6 @@ Yazma sırası: yükselirken önce kontrol baytı (ofset 0 iken = 125 W), sonra 
 * EC'ye erişim için bu uygulama **`ACPIDriver` çekirdek sürücüsünün kurulu ve çalışır olmasını gerektirir**. Sürücünün `.sys/.inf` dosyaları bu depoda **yoktur**
   ve yeniden dağıtılamaz (üreticiye aittir). Sürücü yoksa uygulama EC'ye yazmaz ve nedenini açıkça söyler.
 * EC erişimi için Control Center'ın `ACPIDriverDll.dll` dosyasına gerek yoktur: uygulama aygıtı doğrudan `DeviceIoControl` ile açar (makine kodu analizine dayanır).
-* **Kalıcılık için ise** Control Center'ın `GCUService` hizmeti gerekir: v1.4.0'da her profil seçimi, OEM profil dosyasına da kaydedilir ve OEM profil dosyası
-  kullanılamıyorsa **hiçbir şey uygulanmaz** (bkz. [README](../README.md#kalıcılık-neye-dayanır)). Yani uygulama "Control Center'dan tamamen bağımsız" değildir.
+* **Kalıcılık için ise** Control Center'ın `GCUService` hizmeti gerekir: v1.4.0'dan beri her profil seçimi, OEM profil dosyasına da kaydedilir ve OEM profil dosyası
+  kullanılamıyorsa **hiçbir şey uygulanmaz** (bkz. [README](../README.tr.md#kalıcılık-neye-dayanır)). Yani uygulama "Control Center'dan tamamen bağımsız" değildir.
 * İmza denetimi/test-imzalama atlatma ve sürücü yükleme hilesi **yoktur ve önerilmez**.

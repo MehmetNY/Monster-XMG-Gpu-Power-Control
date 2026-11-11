@@ -1,5 +1,5 @@
 // Kullanıcı ayarları (saf ayrıştırma/serileştirme). Dosya G/Ç src/win/settings_store.cpp içindedir.
-// Dosya yalnızca açık/kapalı bayrakları, onaylar ve sahiplik kanıtı taşır; EC adresi veya ham değer TAŞIMAZ.
+// Dosya yalnızca açık/kapalı bayrakları, onaylar, arayüz dili ve sahiplik kanıtı taşır; EC adresi veya ham değer TAŞIMAZ.
 // Eski sürümlerin anahtarları (startup_apply, monitor, auto_reapply, wake_reapply, persist_oem, last_profile, oem_orig_*) okunmaz;
 // bir sonraki kayıtta dosyadan düşer.
 #pragma once
@@ -23,6 +23,10 @@ struct Settings {
   bool consentUnverified = false;  // 130/135 W "canlı doğrulanmadı" bilgisini kullanıcı onayladı
   bool consentModel = false;       // "bu cihaz Monster Tulpar T5 V21.7 (GM5TG7Y)" teyidi (SMBIOS'ta kart etiketi yoksa)
   OemOwnership oem;                // OEM dosyasına son yazılan sürümün sahiplik kanıtı
+  // Arayüz dili: kullanıcı EN/TR düğmesiyle seçtiyse "tr"/"en", hiç seçmediyse "" (otomatik: kurulum dili, yoksa Windows dili).
+  // languageInstaller: seçim yapıldığı andaki kurulum sihirbazı dili ("tr"/"en"/""); yeniden kurulumda dil değişirse yeni seçim kazansın diye.
+  std::string language;
+  std::string languageInstaller;
 };
 
 Settings ParseSettings(const std::string& text);

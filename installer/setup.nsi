@@ -3,9 +3,11 @@
 ;
 ; Language / Dil:
 ;   * Interactive setup shows a language dialog first (English / Türkçe). The choice drives every installer page,
-;     the shortcut names, the finish-page readme and the uninstaller (it is remembered in HKLM\Software\MonsterGpuPower\Language).
+;     the shortcut names and the uninstaller, and it is remembered in HKLM\Software\MonsterGpuPower\Language (1033 = English,
+;     1055 = Turkish). The installed application reads that value as its initial interface language (the EN|TR switch in the
+;     application window can change it later; a reinstall with a different language choice takes precedence again).
 ;   * Silent / scripted setup:  Setup.exe /S /LANG=EN   or   /S /LANG=TR      (without /LANG the system UI language is used,
-;     Turkish when it is neither English nor Turkish).  Other switches: /NODESKTOP  /NOSTARTMENU  /D=<install dir>
+;     English when it is neither English nor Turkish).  Other switches: /NODESKTOP  /NOSTARTMENU  /D=<install dir>
 Unicode true
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
@@ -14,7 +16,7 @@ Unicode true
 
 !define APPNAME "MONSTER GPU POWER"
 !define APPEXE  "MonsterGpuPower.exe"
-!define APPVER  "1.4.0"
+!define APPVER  "1.5.0"
 !define APPKEY  "Software\MonsterGpuPower"
 !define UNKEY   "Software\Microsoft\Windows\CurrentVersion\Uninstall\MonsterGpuPower"
 
@@ -25,7 +27,7 @@ RequestExecutionLevel admin
 SetCompressor /SOLID lzma
 BrandingText "${APPNAME} ${APPVER}"
 
-VIProductVersion "1.4.0.0"
+VIProductVersion "1.5.0.0"
 VIAddVersionKey /LANG=1055 "ProductName" "${APPNAME}"
 VIAddVersionKey /LANG=1055 "FileDescription" "${APPNAME} kurulum programı"
 VIAddVersionKey /LANG=1055 "FileVersion" "${APPVER}"
@@ -58,9 +60,9 @@ VIAddVersionKey /LANG=1033 "LegalCopyright" "GPL-3.0"
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 
-; The first language is the fallback when the system language is neither Turkish nor English.
-!insertmacro MUI_LANGUAGE "Turkish"
+; The first language is the fallback when the system language is neither English nor Turkish: English is the primary language.
 !insertmacro MUI_LANGUAGE "English"
+!insertmacro MUI_LANGUAGE "Turkish"
 
 ; ------------------------------------------------------------------------------------------------ texts / metinler
 LangString SEC_MAIN       ${LANG_TURKISH} "Uygulama (zorunlu)"
@@ -91,7 +93,7 @@ LangString LNK_UNINSTALL   ${LANG_ENGLISH} "Uninstall"
 ; Geri alma yönergesi (kaldırmadan ÖNCE 140 W profilini seçmek ya da .bak yedeğini elle geri koymak) README.md'de ve kaldırma ayrıntı günlüğünde.
 LangString TXT_UNINST_TOP  ${LANG_TURKISH} "${APPNAME} kaldırılacak; önce uygulamayı kapatın. NOT: OEM profil dosyasına (UserPofiles) ve yedeklerine dokunulmaz; kaydedilmiş GPU güç değeri OEM hizmetinde geçerli kalır."
 LangString TXT_UNINST_TOP  ${LANG_ENGLISH} "${APPNAME} will be uninstalled; close the application first. NOTE: the OEM profile file (UserPofiles) and its backups are not touched; a saved GPU power value stays in effect via the OEM service."
-LangString TXT_UNINST_OEM  ${LANG_TURKISH} "OEM profil dosyasına (UserPofiles) ve yedeklerine dokunulmadı. Seçtiğiniz GPU güç profili OEM profil dosyasında durduğu için OEM hizmeti tarafından geçerli kalır. OEM varsayılanına dönmek için yedek (.bak) dosyasını elle geri koyabilir ya da kaldırmadan önce uygulamada 140 W profilini seçebilirsiniz (README.md: 'Elle geri dönüş')."
+LangString TXT_UNINST_OEM  ${LANG_TURKISH} "OEM profil dosyasına (UserPofiles) ve yedeklerine dokunulmadı. Seçtiğiniz GPU güç profili OEM profil dosyasında durduğu için OEM hizmeti tarafından geçerli kalır. OEM varsayılanına dönmek için yedek (.bak) dosyasını elle geri koyabilir ya da kaldırmadan önce uygulamada 140 W profilini seçebilirsiniz (README.tr.md: 'Elle geri dönüş')."
 LangString TXT_UNINST_OEM  ${LANG_ENGLISH} "The OEM profile file (UserPofiles) and its backups were not touched. The GPU power profile you selected stays in the OEM profile file, so the OEM service keeps applying it. To return to the OEM default, put a backup (.bak) file back by hand, or select the 140 W profile in the app before uninstalling (README.md: 'Manual rollback')."
 ; v1.3.0: kaldırıcı iki Görev Zamanlayıcı görevini siler ve silindiklerini doğrular; doğrulanamazsa bunu açıkça yazar (sessizce geçmez).
 ; v1.3.0: the uninstaller removes both Task Scheduler tasks and verifies it; when that cannot be verified it says so instead of staying silent.

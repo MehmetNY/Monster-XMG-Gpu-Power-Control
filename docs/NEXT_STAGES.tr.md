@@ -1,8 +1,10 @@
 # Sonraki aşamalar (araştırma notları — uygulamada YOK)
 
+[English](NEXT_STAGES.md) · **Türkçe**
+
 > Bu dosya yalnızca **ileride** düşünülebilecek işleri kaydeder. Bunların **hiçbiri** MONSTER GPU POWER'da yoktur, hiçbirine dokunulmamıştır ve vaat edilmemektedir:
 > kodda CPU/GPU ortak güç bütçesi, Control Center alternatifi veya Advanced BIOS ile ilgili bir değişiklik yoktur; 230 W adaptör politikası değiştirilmemiştir; 330 W profiline dönülmemiştir.
-> Önkoşul: [cihaz kabul testi](CIHAZ_KABUL_TESTI.md)nin kendi cihazınızda geçilmiş olması.
+> Önkoşul: [cihaz kabul testi](DEVICE_ACCEPTANCE_TEST.tr.md)nin kendi cihazınızda geçilmiş olması.
 
 ## Aşama 2 — CPU/GPU ortak güç bütçesi
 

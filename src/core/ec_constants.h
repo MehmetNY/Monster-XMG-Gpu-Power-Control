@@ -2,8 +2,8 @@
 //
 // Kanıt kaynakları (cihaz sahibinin kendi ölçümleri ve OEM sürücü DLL'sinin incelenmesi; OEM ikilileri depoda yoktur):
 //  * IOCTL / aygıt yolu: OEM ACPIDriverDll.dll içindeki ReadEC/WriteEC
-//    makine kodundan okundu (CreateFileW + DeviceIoControl). Bkz. docs/SURUCU_ABI.md
-//  * EC değerleri: cihaz sahibinin canlı ölçümleri (bkz. docs/SURUCU_ABI.md, profil tablosu)
+//    makine kodundan okundu (CreateFileW + DeviceIoControl). Bkz. docs/DRIVER_ABI.md
+//  * EC değerleri: cihaz sahibinin canlı ölçümleri (bkz. docs/DRIVER_ABI.md, profil tablosu)
 //  * 0x0743 bit adları: Linux uniwill-acpi.c makroları (yalnız isim; Linux bunları kullanmıyor)
 //
 // Bir cihaz/BIOS/EC revizyonu değişirse yalnız BU dosya değiştirilir.
@@ -17,7 +17,7 @@ inline constexpr wchar_t kAcpiDevicePath[] = L"\\\\.\\ACPIDriver";
 inline constexpr uint32_t kIoctlReadEc = 0x9C40A488u;   // ReadEC  (OEM DLL ile aynı)
 inline constexpr uint32_t kIoctlWriteEc = 0x9C40A48Cu;  // WriteEC (OEM DLL ile aynı)
 // OEM DLL her çağrıda 4 MiB giriş/çıkış tamponu verir. Daha küçük tamponun kabul edildiği
-// doğrulanmadığı için birebir aynısı kullanılır (docs/SURUCU_ABI.md, "Tampon boyutu").
+// doğrulanmadığı için birebir aynısı kullanılır (docs/DRIVER_ABI.md, "Tampon boyutu").
 inline constexpr uint32_t kIoBufferBytes = 0x400000u;
 
 // ---------------------------------------------------------------- EC adresleri

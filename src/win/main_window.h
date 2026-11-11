@@ -4,13 +4,15 @@
 // Dosyalar: main_window.cpp (pencere, yerleşim, çizim, tepsi, çıkış), main_window_apply.cpp (profil seçimi -> kalıcı uygulama akışı),
 // main_window_persist.cpp (OEM profil dosyasının salt okunur denetimi), main_window_tasks.cpp (Görev Zamanlayıcı: açılışta başlat).
 #pragma once
+#include <functional>
 #include <string>
 
 #include "../core/oem_profile.h"
 #include "../core/persist_view.h"
 #include "../core/settings.h"
 #include "backends.h"
-#include "strings_tr.h"
+#include "lang.h"
+#include "strings.h"
 #include "ui_controls.h"
 #include "worker.h"
 
@@ -51,7 +53,7 @@ class MainWindow {
   // --- çizim
   void OnPaint();
   void PaintAll(ui::Canvas& cv);
-  tr::Notice CurrentNotice() const;
+  txt::Notice CurrentNotice() const;
   void PaintCard(ui::Canvas& cv);
   void PaintNotice(ui::Canvas& cv);
   void PaintPersist(ui::Canvas& cv);
@@ -69,6 +71,12 @@ class MainWindow {
   // --- komutlar
   void OnCommand(int id);
   void OnAbout();
+  // --- arayüz dili (EN | TR): tüm metinler geçerli dilde yeniden kurulur; seçim ayar dosyasına yazılır (kurulu ve kurulumsuz kopyada aynı)
+  void OnLanguageToggle();
+  void ApplyLanguage(Lang l);
+  // Sonuç bildirimi, dil değişince yeniden üretilebilsin diye üretici işlevle birlikte saklanır.
+  void SetNotice(std::function<txt::Notice()> mk);
+  void ClearNotice();
   void ShowMe();
 
   // --- profil seçimi = kalıcı uygulama (win/main_window_apply.cpp)
@@ -88,7 +96,7 @@ class MainWindow {
   void OnOemState(OemMsg* m);
   PersistView CurrentPersistView() const;
   void StoreOemInspection(oem::Inspection insp);
-  tr::Notice PersistStatusNotice() const;
+  txt::Notice PersistStatusNotice() const;
 
   // --- Görev Zamanlayıcı: "Uygulamayı açılışta başlat" (win/main_window_tasks.cpp)
   // COM çağrıları arayüzü bloklamasın diye Worker'da çalışır; anahtarın durumu GERÇEK görevden türetilir (ayar dosyasından DEĞİL).
@@ -121,13 +129,13 @@ class MainWindow {
   HWND hwnd_ = nullptr;
   HWND prof_[6] = {};
   HWND chkAutostart_ = nullptr, chkRestore_ = nullptr;
-  HWND btnRefresh_ = nullptr, btnConsent_ = nullptr, btnAbout_ = nullptr;
+  HWND btnRefresh_ = nullptr, btnConsent_ = nullptr, btnAbout_ = nullptr, btnLang_ = nullptr;
   ui::Fonts fonts_;
   int dpi_ = 96;     // YERLEŞİM ölçeği (S() ve yazı tipleri bununla); ekrana sığmıyorsa sysDpi_'den küçüktür
   int sysDpi_ = 96;  // pencerenin bulunduğu monitörün gerçek DPI'ı (çerçeve/başlık ölçüleri için)
   HICON iconBig_ = nullptr, iconSmall_ = nullptr;
 
-  RECT rcCard_ = {}, rcNotice_ = {}, rcDesc_[2] = {}, rcFooter_ = {};
+  RECT rcCard_ = {}, rcNotice_ = {}, rcDesc_[2] = {}, rcFooter_ = {}, rcLang_ = {};
   RECT rcPersist_ = {}, rcPersistTitle_ = {}, rcPersistDesc_ = {}, rcPersistStatus_ = {};
   int persistSepY_ = 0;
   int clientH_ = 600;
@@ -147,7 +155,8 @@ class MainWindow {
   bool trayShown_ = false;
   int trayRetries_ = 0;  // tepsi simgesi eklenemedikçe (görev çubuğu henüz hazır değil) sınırlı yeniden deneme
   UINT taskbarCreated_ = 0;
-  tr::Notice resultNotice_;
+  txt::Notice resultNotice_;
+  std::function<txt::Notice()> noticeMk_;  // resultNotice_ üreticisi (dil değişince yeniden çağrılır)
 
   // --- OEM profil dosyası durumu (yalnız arayüz iş parçacığı; depo nesnesi YALNIZ Worker'dan kullanılır)
   oem::Inspection oemInsp_;  // en son GERÇEK denetim

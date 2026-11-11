@@ -12,8 +12,8 @@ namespace mgp {
 namespace win {
 
 using namespace ids;
-using tr::Level;
-using tr::Notice;
+using txt::Level;
+using txt::Notice;
 
 struct MainWindow::OemMsg {
   oem::Inspection insp;
@@ -49,10 +49,9 @@ PersistView MainWindow::CurrentPersistView() const {
 
 Notice MainWindow::PersistStatusNotice() const {
   if (applyInFlight_) {
-    return {Level::Info, applyIsExit_ ? L"OEM 140 W'a dönülüyor…"
-                                      : L"Profil uygulanıyor; EC + NVIDIA doğrulanınca OEM profil dosyasına da kaydedilecek…"};
+    return {Level::Info, applyIsExit_ ? txt::kPersistApplyingExit() : txt::kPersistApplying()};
   }
-  return tr::PersistStatus(CurrentPersistView());
+  return txt::PersistStatus(CurrentPersistView());
 }
 
 void MainWindow::RequestOemInspect() {

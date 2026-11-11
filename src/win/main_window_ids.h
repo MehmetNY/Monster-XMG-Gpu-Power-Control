@@ -19,7 +19,8 @@ enum : int {
   IDC_CHK_RESTORE,
   IDC_BTN_REFRESH = 1201,
   IDC_BTN_CONSENT,
-  IDC_BTN_ABOUT
+  IDC_BTN_ABOUT,
+  IDC_LANG
 };
 
 }  // namespace ids
